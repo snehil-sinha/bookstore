@@ -1,0 +1,5 @@
+# Configuration for Go Bookstore
+
+env: development  # allowed values: development production
+port: 8080
+bind: 0.0.0.0
