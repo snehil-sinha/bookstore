@@ -3,6 +3,7 @@ package book
 import (
 	"fmt"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/kamva/mgm/v3"
 	"github.com/snehil-sinha/goBookStore/common"
 	"github.com/snehil-sinha/goBookStore/db"
@@ -12,10 +13,11 @@ import (
 
 type Book struct {
 	mgm.DefaultModel `bson:",inline"`
-	Title            string `json:"title" bson:"title" validate:"required,gt=0"`
-	Pages            int    `json:"pages" bson:"pages" validate:"required,numeric,gte=1"`
+	Title            string `json:"title" bson:"title" validate:"required,gt=0,bookAlreadyPresent"`
+	Pages            int    `json:"pages" bson:"pages" validate:"required,numeric,gte=1,bookAlreadyPresent"`
 }
 
+// Returns a new book object
 func NewBook(name string, pages int) *Book {
 	return &Book{
 		Title: name,
@@ -115,12 +117,15 @@ func isBookAlreadyPresent(title string, pages int) bool {
 
 	filter := bson.M{"title": title, "pages": pages}
 
-	result := []Book{}
-
-	err := db.GoBookStore.SimpleFindWithCtx(mgm.Ctx(), &result, filter)
+	count, err := db.GoBookStore.CountDocuments(mgm.Ctx(), filter)
 	if err != nil {
-		return false
+		return true
 	}
 
-	return len(result) != 0
+	return count > 0
+}
+
+// Validator function to check if book is already present in the database
+func (b *Book) ValidateBookAlreadyPresent(fl validator.FieldLevel) bool {
+	return !isBookAlreadyPresent(b.Title, b.Pages)
 }
