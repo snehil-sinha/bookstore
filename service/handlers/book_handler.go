@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/snehil-sinha/goBookStore/common"
@@ -48,8 +49,20 @@ func FindBookHandler(s *common.App) gin.HandlerFunc {
 
 		resp, err = book.ReadById(s.Log, queryParam)
 		if err != nil {
+			if strings.EqualFold("the provided hex string is not a valid ObjectID", err.Error()) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+			if strings.EqualFold("mongo: no documents in result", err.Error()) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "book not found!",
+				"error": err.Error(),
 			})
 			return
 		}
@@ -76,6 +89,12 @@ func CreateBookHandler(s *common.App) gin.HandlerFunc {
 
 		book, err := book.Create(s.Log, &req)
 		if err != nil {
+			if strings.Contains(err.Error(), "validation") {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
@@ -107,6 +126,18 @@ func UpdateBookHandler(s *common.App) gin.HandlerFunc {
 
 		rsp, err = book.Update(s.Log, id, &req)
 		if err != nil {
+			if strings.EqualFold("the provided hex string is not a valid ObjectID", err.Error()) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+			if strings.EqualFold("mongo: no documents in result", err.Error()) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
@@ -123,6 +154,18 @@ func DeleteBookHandler(s *common.App) gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := book.Delete(s.Log, id); err != nil {
+			if strings.EqualFold("the provided hex string is not a valid ObjectID", err.Error()) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+			if strings.EqualFold("mongo: no documents in result", err.Error()) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})

@@ -10,7 +10,7 @@ var (
 	GoBookStore *mgm.Collection
 )
 
-// Initialise the ODM and DB
+// Initialise the ODM
 func InitDbMapper(log *common.Logger, database, uri string) (err error) {
 	err = mgm.SetDefaultConfig(nil, database, options.Client().ApplyURI(uri))
 	if err != nil {

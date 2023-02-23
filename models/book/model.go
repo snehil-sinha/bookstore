@@ -36,7 +36,7 @@ func ReadById(log *common.Logger, id string) (out *Book, err error) {
 
 	err = db.GoBookStore.FirstWithCtx(mgm.Ctx(), bson.M{"_id": objID}, out)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("mongo: no documents in result")
 	}
 	return
 }
@@ -77,7 +77,7 @@ func Update(log *common.Logger, id string, data *Book) (out *Book, err error) {
 	out, err = ReadById(log, id)
 	if err != nil {
 		log.Error(err.Error())
-		return nil, fmt.Errorf("error fetching book, id: %s err: %s", id, err.Error())
+		return nil, err
 	}
 
 	if data.Title != "" {
@@ -101,7 +101,7 @@ func Delete(log *common.Logger, id string) (err error) {
 	out, err := ReadById(log, id)
 	if err != nil {
 		log.Error(err.Error())
-		return
+		return err
 	}
 
 	err = db.GoBookStore.DeleteWithCtx(mgm.Ctx(), out)
