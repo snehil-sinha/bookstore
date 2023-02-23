@@ -14,7 +14,7 @@ import (
 type Book struct {
 	mgm.DefaultModel `bson:",inline"`
 	Title            string `json:"title" bson:"title" validate:"required,gt=0,bookAlreadyPresent"`
-	Pages            int    `json:"pages" bson:"pages" validate:"required,numeric,gte=1,bookAlreadyPresent"`
+	Pages            int    `json:"pages" bson:"pages" validate:"required,numeric,gte=1"`
 }
 
 // Returns a new book object
