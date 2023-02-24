@@ -61,10 +61,10 @@ Start the server
   go run main.go
 ```
 
-Note: You can alternatively build the project to generate a binary executable file called main and use it to start the server
+Note: You can alternatively build the project to generate a binary executable file called goBookStore and use it to start the server
 
 ```bash
-  go build main.go
+  go build
 ```
 
 
