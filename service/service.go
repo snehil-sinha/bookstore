@@ -3,6 +3,7 @@ package service
 import (
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/snehil-sinha/goBookStore/common"
 	"github.com/snehil-sinha/goBookStore/db"
@@ -35,6 +36,14 @@ func Start(s *common.App) {
 		SkipPaths:  []string{},
 	}))
 	r.Use(gin.Recovery())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	r.GET("/health", handlers.PingHandler()) // health check
 
 	v1 := r.Group("/api/v1")
