@@ -2,6 +2,7 @@ package common
 
 import (
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,6 +16,14 @@ type Config struct {
 		DB      string `yaml:"db"`
 		URI     string `yaml:"dsn"`
 		LOGPATH string `yaml:"logpath"`
+		CORS    struct {
+			ALLOWED_ORIGINS   []string      `yaml:"allowed_origins"`
+			ALLOWED_METHOS    []string      `yaml:"allowed_methods"`
+			ALLOWED_HEADERS   []string      `yaml:"allowed_headers"`
+			ALLOW_CREDENTIALS bool          `yaml:"allow_credentials"`
+			EXPOSED_HEADERS   []string      `yaml:"exposed_headers"`
+			MAX_AGE           time.Duration `yaml:"max_duration"`
+		}
 	}
 }
 

@@ -14,11 +14,12 @@ import (
 func Start(s *common.App) {
 
 	var err error
+	var config = s.Cfg.GoBookStore
 
 	// Flush the buffered logs (if any) after successfully starting the service
 	defer s.Log.Core().Sync()
 
-	err = db.New(s.Log, s.Cfg.GoBookStore.DB, s.Cfg.GoBookStore.URI)
+	err = db.New(s.Log, config.DB, config.URI)
 	if err != nil {
 		s.Log.Fatal(err.Error())
 	} else {
@@ -37,12 +38,12 @@ func Start(s *common.App) {
 	}))
 	r.Use(gin.Recovery())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+		AllowOrigins:     config.CORS.ALLOWED_ORIGINS,
+		AllowMethods:     config.CORS.ALLOWED_METHOS,
+		AllowHeaders:     config.CORS.ALLOWED_HEADERS,
+		ExposeHeaders:    config.CORS.EXPOSED_HEADERS,
+		AllowCredentials: config.CORS.ALLOW_CREDENTIALS,
+		MaxAge:           config.CORS.MAX_AGE,
 	}))
 	r.GET("/health", handlers.PingHandler()) // health check
 
