@@ -1,5 +1,14 @@
 # Configuration for Go Bookstore
 
-env: development  # allowed values: development production
-port: 8080
+#allowed values: development test production
+env: test
 bind: 0.0.0.0
+port: 8081
+
+gobookstore:
+  db: book_store_test
+  dsn: mongodb+srv://LordLava:LordLava2000%40@cluster0.zhq09oo.mongodb.net/?retryWrites=true&w=majority
+  logpath: /Users/snehil.sinha/Documents/bookstore/log/logs_test.log
+
+cors:
+  allowed_origins: ^(localhost)(:\d{1,4}|)$

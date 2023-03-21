@@ -1,6 +1,12 @@
 package service
 
 import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"regexp"
+	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -10,16 +16,26 @@ import (
 	"github.com/snehil-sinha/goBookStore/service/handlers"
 )
 
+func setGinMode(env string) {
+	switch env {
+	case "development":
+		gin.SetMode(gin.DebugMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	case "production":
+		gin.SetMode(gin.ReleaseMode)
+	}
+}
+
 // Used to start the service
-func Start(s *common.App) {
+func Start(s *common.App) *http.Server {
 
 	var err error
-	var config = s.Cfg.GoBookStore
 
 	// Flush the buffered logs (if any) after successfully starting the service
 	defer s.Log.Core().Sync()
 
-	err = db.New(s.Log, config.DB, config.URI)
+	err = db.New(s.Log, s.Cfg.GoBookStore.DB, s.Cfg.GoBookStore.URI)
 	if err != nil {
 		s.Log.Fatal(err.Error())
 	} else {
@@ -28,23 +44,31 @@ func Start(s *common.App) {
 
 	s.Log.Sugar().Infof("starting HTTP listeners [%s:%s]", s.Cfg.Bind, s.Cfg.Port)
 
+	setGinMode(s.Cfg.Env)
+
 	r := gin.New()
 
-	logger := s.Log.Logger
-	r.Use(LoggerWithConfig(logger, &HTTPLogCfg{
-		TimeFormat: time.RFC3339,
-		UTC:        true,
-		SkipPaths:  []string{},
-	}))
-	r.Use(gin.Recovery())
+	if gin.Mode() != gin.TestMode {
+		logger := s.Log.Logger
+		r.Use(LoggerWithConfig(logger, &HTTPLogCfg{
+			TimeFormat: time.RFC3339,
+			UTC:        true,
+			SkipPaths:  []string{},
+		}))
+		r.Use(gin.Recovery())
+	}
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     config.CORS.ALLOWED_ORIGINS,
-		AllowMethods:     config.CORS.ALLOWED_METHOS,
-		AllowHeaders:     config.CORS.ALLOWED_HEADERS,
-		ExposeHeaders:    config.CORS.EXPOSED_HEADERS,
-		AllowCredentials: config.CORS.ALLOW_CREDENTIALS,
-		MaxAge:           config.CORS.MAX_AGE,
+		AllowOriginFunc: func(origin string) bool {
+			return regexp.MustCompile(common.GetAllowedOriginsRegex()).MatchString(origin)
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"},
+		AllowHeaders:     []string{"Authorization", "Content-Type", "X-Requested-With"},
+		ExposeHeaders:    []string{"Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
 	}))
+
 	r.GET("/health", handlers.PingHandler()) // health check
 
 	v1 := r.Group("/api/v1")
@@ -58,8 +82,36 @@ func Start(s *common.App) {
 
 	}
 
-	if err := r.Run(s.Cfg.Bind + ":" + s.Cfg.Port); err != nil {
-		s.Log.Fatal(err.Error())
+	server := &http.Server{
+		Addr:    s.Cfg.Bind + ":" + s.Cfg.Port,
+		Handler: r,
 	}
 
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.Log.Sugar().Fatalf("Could not listen on %s:%s %v", s.Cfg.Bind, s.Cfg.Port, err)
+		}
+	}()
+	return server
+}
+
+func WaitForShutdown() {
+	// Wait for a signal to shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+}
+
+func GracefullyShutDownServer(log *common.Logger, server *http.Server) {
+
+	log.Sugar().Info("Server shutting down...")
+
+	// Gracefully shutdown the server, waiting for all active connections to finish
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Sugar().Errorf("Error shutting down the server: %s", err)
+	} else {
+		log.Sugar().Info("Server stopped")
+	}
 }

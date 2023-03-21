@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/snehil-sinha/goBookStore/common"
+	"github.com/snehil-sinha/goBookStore/db"
 	"github.com/snehil-sinha/goBookStore/service"
 )
+
+const usage = `Usage:
+%s  -c | -config /path/to/config -b | -bind <ip address> -p | -port <port number>
+`
 
 // Driver function
 func main() {
@@ -16,8 +23,37 @@ func main() {
 
 	var (
 		err        error
-		configFile string = "config.yaml"
+		configFile string
+		bind       string
+		port       string
 	)
+
+	// loading go .env file
+	er := godotenv.Load()
+	if er != nil {
+		fmt.Println("error loading .env file")
+		os.Exit(-1)
+	}
+
+	// Setup the flags
+	flag.Usage = func() { // [1]
+		fmt.Fprintf(flag.CommandLine.Output(), usage, os.Args[0])
+		flag.PrintDefaults()
+	}
+
+	flag.StringVar(&configFile, "c", "", "Configuration file path.")
+	flag.StringVar(&configFile, "config", "", "Configuration file path.")
+	flag.StringVar(&bind, "b", common.Bind, "IP address to bind")
+	flag.StringVar(&bind, "bind", common.Bind, "IP address to bind")
+	flag.StringVar(&port, "p", common.Port, "port number to listen")
+	flag.StringVar(&port, "port", common.Port, "port number to listen")
+
+	flag.Parse()
+
+	if configFile == "" {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	// load config from yaml file
 	cfg, err := common.LoadConfig(configFile)
@@ -26,10 +62,11 @@ func main() {
 		os.Exit(-1)
 	}
 
-	// loading go .env file
-	er := godotenv.Load()
-	if er != nil {
-		fmt.Println("error loading .env file")
+	//set APP_ENV in .env file when running in local
+	if env := common.GetAppEnv(); env != "" {
+		cfg.Env = env
+	} else {
+		fmt.Println("service environment not found")
 		os.Exit(-1)
 	}
 
@@ -42,7 +79,7 @@ func main() {
 	// instantiating the logger
 	log, err := common.NewLogger(cfg.Env, cfg.GoBookStore.LOGPATH)
 	if err != nil {
-		fmt.Println("error instantiating the logger instance: ", err)
+		fmt.Println("error instantiating the logger: ", err)
 		os.Exit(-1)
 	}
 
@@ -50,7 +87,15 @@ func main() {
 		Cfg: cfg,
 		Log: log,
 	}
+	cfg.Bind = bind
+	cfg.Port = port
 
 	// start the service
-	service.Start(s)
+	server := service.Start(s)
+	// wait for a signal to shutdown server
+	service.WaitForShutdown()
+	// gracefully shutdown the server
+	service.GracefullyShutDownServer(s.Log, server)
+	// close the DB connection
+	db.Client.Close(context.TODO(), log)
 }

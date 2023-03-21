@@ -14,6 +14,9 @@ type Logger struct {
 
 // Return a new custom zap logger instance
 func NewLogger(env string, logPath string) (*Logger, error) {
+	if env == "test" {
+		return &Logger{zap.NewNop()}, nil
+	}
 
 	var (
 		l   *zap.Logger
