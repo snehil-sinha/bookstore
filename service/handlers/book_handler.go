@@ -17,14 +17,14 @@ func PingHandler() gin.HandlerFunc {
 }
 
 // FindBooksHandler fetches all books
-func FindBooksHandler(s *common.App) gin.HandlerFunc {
+func FindBooksHandler(svc book.BookService, s *common.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var (
 			err  error
 			resp []*book.Book
 		)
 
-		resp, err = book.ReadAll(s.Log)
+		resp, err = svc.ReadAll(s.Log)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "server encountered an unknown error",
@@ -37,7 +37,7 @@ func FindBooksHandler(s *common.App) gin.HandlerFunc {
 }
 
 // FindBookHandler fetches the book (if present) by the specified ID
-func FindBookHandler(s *common.App) gin.HandlerFunc {
+func FindBookHandler(svc book.BookService, s *common.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		queryParam := c.Param("id")
@@ -47,7 +47,7 @@ func FindBookHandler(s *common.App) gin.HandlerFunc {
 			resp *book.Book
 		)
 
-		resp, err = book.ReadById(s.Log, queryParam)
+		resp, err = svc.ReadById(s.Log, queryParam)
 		if err != nil {
 			if strings.EqualFold("the provided hex string is not a valid ObjectID", err.Error()) {
 				c.JSON(http.StatusBadRequest, gin.H{

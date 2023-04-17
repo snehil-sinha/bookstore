@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/snehil-sinha/goBookStore/common"
 	"github.com/snehil-sinha/goBookStore/db"
+	"github.com/snehil-sinha/goBookStore/models/book"
 	"github.com/snehil-sinha/goBookStore/service/handlers"
 )
 
@@ -71,11 +72,13 @@ func Start(s *common.App) *http.Server {
 
 	r.GET("/health", handlers.PingHandler()) // health check
 
+	bs := book.NewBookService()
+
 	v1 := r.Group("/api/v1")
 	{
 		v1.GET("/ping", handlers.PingHandler())
-		v1.GET("/books", handlers.FindBooksHandler(s))
-		v1.GET("/books/:id", handlers.FindBookHandler(s))
+		v1.GET("/books", handlers.FindBooksHandler(bs, s))
+		v1.GET("/books/:id", handlers.FindBookHandler(bs, s))
 		v1.POST("/books", handlers.CreateBookHandler(s))
 		v1.PUT("/books/:id", handlers.UpdateBookHandler(s))
 		v1.DELETE("/books/:id", handlers.DeleteBookHandler(s))

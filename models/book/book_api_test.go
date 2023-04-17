@@ -1,115 +1,36 @@
-package test
+package book_test
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/snehil-sinha/goBookStore/common"
 	"github.com/snehil-sinha/goBookStore/db"
 	"github.com/snehil-sinha/goBookStore/models/book"
-	"github.com/snehil-sinha/goBookStore/service"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/snehil-sinha/goBookStore/test"
 )
 
 var baseUrl string
 
-const testConfigPath = "/Users/snehil.sinha/Documents/bookstore/config.yaml"
-
-func LoadTestConfig() (cfg *common.Config, err error) {
-	// load config from yaml file
-	cfg, err = common.LoadConfig(testConfigPath)
-	if err != nil {
-		err = fmt.Errorf("failed to load the test config file: %s", err)
-		return
-	}
-	if cfg.Env != "test" {
-		err = fmt.Errorf("error: make sure the APP_ENV is set to test for testing")
-		return
-	}
-	return
-}
-
-func getMockTestLogger(cfg *common.Config) (*common.Logger, error) {
-	log, err := common.NewLogger(cfg.Env, cfg.GoBookStore.LOGPATH)
-	return log, err
-}
-
-func getMockAppInstance(cfg *common.Config) (s *common.App, err error) {
-	// instantiate the logger
-	log, err := getMockTestLogger(cfg)
-	if err != nil {
-		err = fmt.Errorf("failed to instantiate the test logger: %s", err)
-		return
-	}
-
-	// instantiate the App struct
-	s = &common.App{
-		Cfg: cfg,
-		Log: log,
-	}
-	return s, err
-}
-
-func startTestSever(s *common.App) (srv *http.Server, err error) {
-	return service.Start(s), err
-}
-
-func setupServerShutdown(s *common.App, server *http.Server) {
-	service.WaitForShutdown()
-	service.GracefullyShutDownServer(s.Log, server)
-}
-
-func signalShutDown(t *testing.T) {
-	// Get the process ID of the target process
-	pid := os.Getpid()
-
-	// Send a SIGTERM signal to the target process
-	err := syscall.Kill(pid, syscall.SIGTERM)
-	if err != nil {
-		t.Fatalf("server shutdown failed: %s", err)
-	}
-}
-
-func clearDB(ctx context.Context) error {
-	filter := bson.D{}
-	_, err := db.GoBookStore.Collection.DeleteMany(ctx, filter)
-	if err != nil {
-		return fmt.Errorf("failed to clear the DB, %s", err)
-	}
-	return nil
-}
-
-func closeDBConnection(c *mongo.Client, ctx context.Context) error {
-	err := c.Disconnect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to close the DB connection, %s", err)
-	}
-	return nil
-}
-
 func TestMain(m *testing.M) {
 	t := &testing.T{}
 	ctx := context.TODO()
-	cfg, err := LoadTestConfig()
+	cfg, err := test.LoadTestConfig()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	s, err := getMockAppInstance(cfg)
+	s, err := test.GetMockAppInstance(cfg)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// start the server before running tests
-	ts, err := startTestSever(s)
+	ts, err := test.StartTestSever(s)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -124,21 +45,21 @@ func TestMain(m *testing.M) {
 	// start a goroutine to send the shutdown signal
 	go func() {
 		time.Sleep(1 * time.Second)
-		signalShutDown(t)
+		test.SignalShutDown(t)
 	}()
 
 	// shut down server after running tests
-	setupServerShutdown(s, ts)
+	test.SetupServerShutdown(s, ts)
 	// clear the database to make sure there's no existing test data
-	clearDB(ctx)
+	test.ClearDB(ctx)
 	// close DB connection
-	closeDBConnection(db.Client.Client, ctx)
+	test.CloseDBConnection(db.Client.Client, ctx)
 
 	// exit test
 	os.Exit(exitCode)
 }
 
-func TestHealthEndpoint(t *testing.T) {
+func TestHealth(t *testing.T) {
 	Convey("Given the /health endpoint", t, func() {
 
 		url := baseUrl + "/health"
@@ -160,7 +81,7 @@ func TestHealthEndpoint(t *testing.T) {
 	})
 }
 
-func TestFindBooksEndpoint(t *testing.T) {
+func TestFindBooks(t *testing.T) {
 	Convey("Given the /books endpoint", t, func() {
 
 		url := baseUrl + "/api/v1/books"
@@ -188,7 +109,7 @@ func TestFindBooksEndpoint(t *testing.T) {
 	})
 }
 
-func TestFindBookEndpoint(t *testing.T) {
+func TestFindBook(t *testing.T) {
 	Convey("Given a book successfully created using the create endpoint", t, func() {
 
 		url := baseUrl + "/api/v1/books"
@@ -214,7 +135,7 @@ func TestFindBookEndpoint(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Reset(func() {
-			clearDB(context.TODO())
+			test.ClearDB(context.TODO())
 		})
 
 		Convey("When called with a GET request to /books with the existing book ID", func() {
@@ -264,12 +185,12 @@ func TestFindBookEndpoint(t *testing.T) {
 	})
 }
 
-func TestCreateBookEndpoint(t *testing.T) {
+func TestCreateBook(t *testing.T) {
 	Convey("Given the /books endpoint", t, func() {
 		url := baseUrl + "/api/v1/books"
 
 		Reset(func() {
-			clearDB(context.TODO())
+			test.ClearDB(context.TODO())
 		})
 
 		Convey("When called with a POST request to /books with the given book data", func() {
@@ -392,13 +313,13 @@ func TestCreateBookEndpoint(t *testing.T) {
 	})
 }
 
-func TestUpdateBookEndpoint(t *testing.T) {
+func TestUpdateBook(t *testing.T) {
 	Convey("Given a book successfully created using the create endpoint", t, func() {
 
 		url := baseUrl + "/api/v1/books"
 
 		Reset(func() {
-			clearDB(context.TODO())
+			test.ClearDB(context.TODO())
 		})
 
 		book := map[string]interface{}{
@@ -457,7 +378,7 @@ func TestUpdateBookEndpoint(t *testing.T) {
 	})
 }
 
-func TestDeleteBookEndpoint(t *testing.T) {
+func TestDeleteBook(t *testing.T) {
 	Convey("Given a book successfully created using the create endpoint", t, func() {
 		url := baseUrl + "/api/v1/books"
 

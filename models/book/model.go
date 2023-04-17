@@ -11,6 +11,22 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+//go:generate mockgen -destination=mocks/mock_book_service.go -package=mocks . BookService
+type BookService interface {
+	ReadById(*common.Logger, string) (*Book, error)
+	ReadAll(*common.Logger) ([]*Book, error)
+	// Create(*common.Logger, *Book) (*Book, error)
+	// Update(*common.Logger, string, *Book) (*Book, error)
+	// Delete(*common.Logger, string) error
+}
+
+type bookService struct {
+}
+
+func NewBookService() BookService {
+	return &bookService{}
+}
+
 type Book struct {
 	mgm.DefaultModel `bson:",inline"`
 	Title            string `json:"title" bson:"title" validate:"required,gt=0,bookAlreadyPresent"`
@@ -26,7 +42,7 @@ func NewBook(name string, pages int) *Book {
 }
 
 // Get book by id
-func ReadById(log *common.Logger, id string) (out *Book, err error) {
+func (bs *bookService) ReadById(log *common.Logger, id string) (out *Book, err error) {
 	out = &Book{}
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -42,7 +58,7 @@ func ReadById(log *common.Logger, id string) (out *Book, err error) {
 }
 
 // Get all books
-func ReadAll(log *common.Logger) (out []*Book, err error) {
+func (bs *bookService) ReadAll(log *common.Logger) (out []*Book, err error) {
 
 	filter := bson.M{}
 
@@ -74,7 +90,8 @@ func Create(log *common.Logger, in *Book) (out *Book, err error) {
 
 // Update a book
 func Update(log *common.Logger, id string, data *Book) (out *Book, err error) {
-	out, err = ReadById(log, id)
+	bs := NewBookService()
+	out, err = bs.ReadById(log, id)
 	if err != nil {
 		log.Error(err.Error())
 		return nil, err
@@ -97,8 +114,8 @@ func Update(log *common.Logger, id string, data *Book) (out *Book, err error) {
 
 // Delete a book by id
 func Delete(log *common.Logger, id string) (err error) {
-
-	out, err := ReadById(log, id)
+	bs := NewBookService()
+	out, err := bs.ReadById(log, id)
 	if err != nil {
 		log.Error(err.Error())
 		return err

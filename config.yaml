@@ -4,6 +4,7 @@
 env: test
 bind: 0.0.0.0
 port: 8081
+gin_mode: test
 
 gobookstore:
   db: book_store_test
